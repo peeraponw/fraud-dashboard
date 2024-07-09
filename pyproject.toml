@@ -2,7 +2,13 @@
 name = "fraud-dashboard"
 version = "0.1.0"
 description = "Add your description here"
-dependencies = []
+dependencies = [
+    "pandas>=2.2.2",
+    "numpy>=2.0.0",
+    "jupyter>=1.0.0",
+    "ipython>=8.26.0",
+    "streamlit>=1.36.0",
+]
 readme = "README.md"
 requires-python = ">= 3.8"
 
