@@ -106,7 +106,7 @@ with tab1:
                         filtered_df = filtered_df[filtered_df[column].isin(filter_value)]
             
             # Display filtered dataframe
-            st.dataframe(filtered_df, hide_index=True)
+            st.dataframe(filtered_df, hide_index=True, height=1600, use_container_width=True)
             
             # Download button for filtered data
             csv = filtered_df.to_csv(index=False)
@@ -118,6 +118,7 @@ with tab1:
             )
 
 with tab2:
+    
     st.title("Dummy Tab")
     st.write("This is a placeholder for the second tab. Content will be added later.")
 
