@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import io
+from datetime import datetime, time
 
 # Set page config
 st.set_page_config(layout="wide", page_title="Anomaly Detection App")
@@ -24,6 +25,10 @@ if uploaded_file is not None:
             st.session_state.df = pd.read_csv(uploaded_file)
         else:
             st.session_state.df = pd.read_excel(uploaded_file)
+        
+        # Convert Tx Datetime to datetime format
+        if 'Tx Datetime' in st.session_state.df.columns:
+            st.session_state.df['Tx Datetime'] = pd.to_datetime(st.session_state.df['Tx Datetime'])
         
         # Column selector for label
         columns = ['None'] + list(st.session_state.df.columns)
@@ -63,6 +68,21 @@ with tab1:
             # Add filter options for each column
             filters = {}
             for column in st.session_state.df.columns:
+                if column in ['Remark']:
+                    continue
+                if st.session_state.df[column].dtype == 'datetime64[ns]':
+                    start_date = st.date_input("Start Date", st.session_state.df[column].min().date())
+                    start_time = st.slider('Dataset Start time', st.session_state.df[column].min().time(), format="HH:mm")
+                    end_date = st.date_input("Dataset End Date", st.session_state.df[column].max().date())   
+                    end_time = st.slider('End time', value=(st.session_state.df[column].max().time()), format="HH:mm")
+                    start_datetime = datetime.combine(start_date, start_time)
+                    end_datetime = datetime.combine(end_date, end_time)
+                    filters[column] = (start_datetime, end_datetime)
+                    
+                    # filter hour range
+                    day_start_time = st.slider("Day Start Time", min_value=time(0,0), max_value=time(23,59), value=time(0,0), format ="HH:mm")
+                    day_end_time = st.slider("Day End Time", min_value=time(0,0), max_value=time(23,59), value=time(23,59), format ="HH:mm")
+                    filters[column + '_time_range'] = (day_start_time, day_end_time)           
                 if st.session_state.df[column].dtype == 'object':
                     filters[column] = st.multiselect(f"Filter {column}", options=st.session_state.df[column].unique())
                 elif st.session_state.df[column].dtype in ['int64', 'float64']:
@@ -74,7 +94,13 @@ with tab1:
             filtered_df = st.session_state.df.copy()
             for column, filter_value in filters.items():
                 if filter_value:
-                    if isinstance(filter_value, tuple):  # For numeric range
+                    if isinstance(filter_value, tuple) and column.endswith('_time_range'):
+                        column = column.replace('_time_range', '')
+                        if filter_value[0] <= filter_value[1]: # if start time is less than end time
+                            filtered_df = filtered_df[filtered_df[column].dt.time.between(filter_value[0], filter_value[1])]
+                        else: # if the time range cover across midnight
+                            filtered_df = filtered_df[(filtered_df[column].dt.time >= filter_value[0]) | (filtered_df[column].dt.time <= filter_value[1])]
+                    elif isinstance(filter_value, tuple):  # For numeric range
                         filtered_df = filtered_df[(filtered_df[column] >= filter_value[0]) & (filtered_df[column] <= filter_value[1])]
                     else:  # For categorical
                         filtered_df = filtered_df[filtered_df[column].isin(filter_value)]
