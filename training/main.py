@@ -28,7 +28,7 @@ data['Tx Minute'] = data['Tx Datetime'].dt.minute
 data['Tx Second'] = data['Tx Datetime'].dt.second
 
 # Drop unnecessary columns
-data.drop(['Tx Datetime', 'Holder Name', 'Card Number', 'Remark'], axis=1, inplace=True)
+data.drop(['Tx Datetime', 'Holder Name', 'Card Number', 'Remark', 'Payer IP'], axis=1, inplace=True)
 
 # Convert 'label' to binary
 data['label'] = data['label'].apply(lambda x: 1 if x == 'y' else 0)

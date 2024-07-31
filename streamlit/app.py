@@ -3,6 +3,7 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+import joblib
 from datetime import datetime, time, timedelta
 
 # Set page config
@@ -143,6 +144,22 @@ with tab2:
     def rule_escalating_transaction_amounts(df):
         return df.groupby(['Holder Name']).filter(lambda x: (x['Amount'].diff() > 0).sum() > 2)
     
+    def rule_ml(df, model_path):
+        df = df.copy()
+        df['Tx Year'] = df['Tx Datetime'].dt.year
+        df['Tx Month'] = df['Tx Datetime'].dt.month
+        df['Tx Day'] = df['Tx Datetime'].dt.day
+        df['Tx Hour'] = df['Tx Datetime'].dt.hour
+        df['Tx Minute'] = df['Tx Datetime'].dt.minute
+        df['Tx Second'] = df['Tx Datetime'].dt.second
+        datetime_temp = df['Tx Datetime']
+        df.drop(['Tx Datetime', 'Holder Name', 'Card Number', 'Remark', 'Payer IP'], axis=1, inplace=True)
+        pipeline = joblib.load(model_path)
+        y_pred = pipeline.predict(df)
+        df['Tx Datetime'] = datetime_temp
+        df['prediction'] = y_pred
+        return df.loc[df['prediction'] == 1]
+    
     # # # 
     # # # Apply rules
     # # # 
@@ -162,7 +179,9 @@ with tab2:
             ("10 PM to 4 AM", rule_10pm_to_4am),
             ("Rapid Card Use", rule_rapid_card_use),
             ("Excessive IP Switching", rule_excessive_ip_switching),
-            ("Escalating Transaction Amounts", rule_escalating_transaction_amounts)
+            ("Escalating Transaction Amounts", rule_escalating_transaction_amounts),
+            ("Random Forest Classifier", lambda df: rule_ml(df, "streamlit/rf_model.pkl")),
+            ("Xgboost Classifier", lambda df: rule_ml(df, "streamlit/xgb_model.pkl"))
         ]
 
         for rule_name, rule_func in rule_funcs:
@@ -179,6 +198,7 @@ with tab2:
         # Convert rules to DataFrame
         rules = apply_rules(st.session_state.df, last_date)
         rules_df = pd.DataFrame(rules)
+        # st.dataframe(rule_excessive_ip_switching(st.session_state.df), hide_index=True, height=200, use_container_width=True)
         # st.dataframe(rules_df, hide_index=True, height=200, use_container_width=True)
         
         # Display rules table header
