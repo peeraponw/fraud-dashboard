@@ -1,7 +1,9 @@
 import streamlit as st
 import pandas as pd
-import io
-from datetime import datetime, time
+import seaborn as sns
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+from datetime import datetime, time, timedelta
 
 # Set page config
 st.set_page_config(layout="wide", page_title="Anomaly Detection App")
@@ -40,7 +42,7 @@ if uploaded_file is not None:
         st.error(f"Error loading file: {e}")
 
 # Main content
-tab1, tab2 = st.tabs(["Data View", "Dummy Tab"])
+tab1, tab2 = st.tabs(["Data View", "Rules View"])
 
 with tab1:
     st.title("Anomaly Detection Dashboard")
@@ -118,7 +120,92 @@ with tab1:
             )
 
 with tab2:
+    # Date input
+    date_col, _ = st.columns([1, 7])
+    with date_col:
+        last_date = st.date_input("Select the last date", datetime.now().date())
+    # Display rules table
+    st.title("Rules Dashboard")
     
-    st.title("Dummy Tab")
-    st.write("This is a placeholder for the second tab. Content will be added later.")
+    # # # 
+    # # # Collections of rules
+    # # # 
+    def rule_10pm_to_4am(df):
+        df['hour'] = df['Tx Datetime'].dt.hour
+        return df[(df['hour'] >= 22) | (df['hour'] < 4)]
+
+    def rule_rapid_card_use(df):
+        return df.groupby(['Payer IP']).filter(lambda x: len(x['Card Number'].unique()) > 1)
+
+    def rule_excessive_ip_switching(df):
+        return df.groupby(['Card Number']).filter(lambda x: x['Payer IP'].nunique() > 3)
+
+    def rule_escalating_transaction_amounts(df):
+        return df.groupby(['Holder Name']).filter(lambda x: (x['Amount'].diff() > 0).sum() > 2)
+    
+    # # # 
+    # # # Apply rules
+    # # # 
+    # Helper function to apply a rule and calculate metrics
+    def apply_rule(df, rule_func, input_date):
+        rule_df = rule_func(df)
+        today_count = rule_df[rule_df['Tx Datetime'].dt.date == input_date].shape[0]
+        four_week_count = rule_df.groupby(rule_df['Tx Datetime'].dt.date).size().reindex(pd.date_range(end=input_date, periods=28), fill_value=0).tolist()
+        last_event = rule_df['Tx Datetime'].max()
+        return today_count, four_week_count, last_event
+
+    # Apply rules and calculate metrics
+    def apply_rules(df, input_date):
+        rules = []
+
+        rule_funcs = [
+            ("10 PM to 4 AM", rule_10pm_to_4am),
+            ("Rapid Card Use", rule_rapid_card_use),
+            ("Excessive IP Switching", rule_excessive_ip_switching),
+            ("Escalating Transaction Amounts", rule_escalating_transaction_amounts)
+        ]
+
+        for rule_name, rule_func in rule_funcs:
+            today_count, four_week_count, last_event = apply_rule(df, rule_func, input_date)
+            rules.append({
+                "Rule Name": rule_name,
+                "Today Count": today_count,
+                "4-week Count": four_week_count,
+                "Last Event": last_event
+            })
+
+        return rules
+    if st.session_state.df is not None:
+        # Convert rules to DataFrame
+        rules = apply_rules(st.session_state.df, last_date)
+        rules_df = pd.DataFrame(rules)
+        # st.dataframe(rules_df, hide_index=True, height=200, use_container_width=True)
+        
+        # Display rules table header
+        header_col1, header_col2, header_col3, header_col4 = st.columns([2, 1, 4, 2])
+        with header_col1:
+            st.subheader("Rule Name")
+        with header_col2:
+            st.subheader("Today")
+        with header_col3:
+            st.subheader("Past 4-Week Activity")
+        with header_col4:
+            st.subheader("Last Detection")
+        for index, row in rules_df.iterrows():
+            col1, col2, col3, col4 = st.columns([2, 1, 4, 2])
+            
+            with col1:
+                st.write(row['Rule Name'])
+            with col2:
+                st.subheader(row['Today Count'])
+            with col3:
+                chart_data = pd.DataFrame({'date': pd.date_range(end=last_date, periods=28), 'count': row['4-week Count']})
+                plt.figure(figsize=(8, 2))
+                sns.barplot(x='date', y='count', data=chart_data)
+                plt.xticks(rotation=45)
+                plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%d-%b'))
+                plt.tight_layout()
+                st.pyplot(plt)
+            with col4:
+                st.write(row['Last Event'])
 
