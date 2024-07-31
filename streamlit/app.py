@@ -180,8 +180,8 @@ with tab2:
             ("Rapid Card Use", rule_rapid_card_use),
             ("Excessive IP Switching", rule_excessive_ip_switching),
             ("Escalating Transaction Amounts", rule_escalating_transaction_amounts),
-            ("Random Forest Classifier", lambda df: rule_ml(df, "rf_model.pkl")),
-            ("Xgboost Classifier", lambda df: rule_ml(df, "xgb_model.pkl"))
+            ("Random Forest Classifier", lambda df: rule_ml(df, "streamlit/rf_model.pkl")),
+            ("Xgboost Classifier", lambda df: rule_ml(df, "streamlit/xgb_model.pkl"))
         ]
 
         for rule_name, rule_func in rule_funcs:
